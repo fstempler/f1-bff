@@ -1,19 +1,23 @@
 import { getJson } from '../lib/http.js';
 
 //Current Session
-export async function getCurrentSession() {
-  const year = new Date().getUTCFullYear();
+export async function getCurrentSession(year) {
   const arr = await getJson('/sessions', { year });
-  if (!Array.isArray(arr) || arr.length === 0) return null;
+  if (!Array.isArray(arr) || !arr.length) return null;
 
   const now = Date.now();
   const inProgress = arr.find(s => {
-    const start = Date.parse(s.date_start);
-    const end   = Date.parse(s.date_end);
-    return Number.isFinite(start) && Number.isFinite(end) && start <= now && now <= end;
+    const a = Date.parse(s.date_start), b = Date.parse(s.date_end);
+    return Number.isFinite(a) && Number.isFinite(b) && a <= now && now <= b;
   });
-  const latestByStart = [...arr].sort((a, b) => Date.parse(b.date_start) - Date.parse(a.date_start))[0];
-  return inProgress ?? latestByStart ?? null;
+  if (inProgress) return inProgress;
+
+  return [...arr].sort((a, b) => Date.parse(b.date_start) - Date.parse(a.date_start))[0] || null;
+}
+
+//session for session_key
+export async function getSessionByKey(session_key) {
+  return getJson('/session', { session_key });
 }
 
 //Current Drivers in Session

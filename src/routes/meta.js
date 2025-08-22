@@ -1,28 +1,48 @@
 import { Router } from 'express';
-import { getCurrentSession, getDrivers } from '../services/openf1.js';
+import { getCurrentSession, getDrivers, getSessionByKey } from '../services/openf1.js';
 import { adaptSessionMeta } from '../services/adapters.js';
 import { makeCache } from '../lib/cache.js';
 import { config } from '../config.js';
 
 const cache = makeCache(50);
 const router = Router();
+let lastGoodMeta = null;
 
-router.get('/', async (_req, res, next) => {
+async function safe(promise, label) {
+    try { return await promise; }
+    catch (e) { console.watn(`[meta] ${label} failed: ${e.message || e}`); return null; }
+}
+
+router.get('/', async (req, res, next) => {
     try {
-        const key = 'meta:current';
-        const hit = cache.get(key);
-        if (hit) return res.json(hit);
+        const overrideKey = req.query.session_key ? Number(req.query.session_key) : null;
+        const yearParam = req.query.year ? Number(req.query.year) : new Date().getUTCFullYear();
 
-        const session = await getCurrentSession();
-        if (!session) return res.status(404).json({ error: 'no_session' });
+        let session = null;
 
-        const drivers = await getDrivers(Number(session.session_key));
+        if (overrideKey) {
+            const arr = await safe(getSessionByKey(overrideKey), 'session_by_key');
+            session = Array.isArray(arr) && arr[0] ? arr[0] : { session_key: overrideKey };
+        } else {
+            session = await safe(getCurrentSession(yearParam), 'current_session');
+            if (!session) session = await safe(getCurrentSession(yearParam - 1), 'current_session_prev');
+        }
+
+        if (!session) {
+            if (lastGoodMeta) {
+                res.setHeader('Cache-Control', 'no-store');
+                return res.json(lastGoodMeta);
+            }
+            return res.status(503).json({ error: 'meta_enavailable' });
+        }
+
+        const drivers = await safe(getDrivers(Number(session.session_key)), 'drivers') || [];
         const meta = adaptSessionMeta(session, drivers);
+        lastGoodMeta = meta;
 
-        cache.set(key, meta);
-        setTimeout(() => cache.del(key), config.poll.meta);
+        res.setHeader('Cache-Control', 'no-store');
         res.json(meta);
-    } catch (e) { next(e); }
+    } catch (err) { next(err); }
 
 });
 
