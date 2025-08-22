@@ -72,7 +72,7 @@ function maxIso(isos) {
         const t = Date.parse(s);
         if (Number.isFinite(t) && t > bestT) { 
             bestT = d; 
-            best = new Date(t).toISOString(); 
+            best = new Date(d).toISOString(); 
         }
     }
     return best;
