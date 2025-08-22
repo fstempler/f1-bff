@@ -30,12 +30,14 @@ export async function getPosition(session_key, since) {
 
 //Intervals: Fetches time gap between driver and race leader
 export async function getIntervals(session_key, since) {
-    return getJson('/intervals', { session_key, date_start: since });
+    try { return getJson('/intervals', { session_key, date_start: since }); }
+    catch { return []; }
 }
 
 //Car Data: Fetches data from the car
 export async function getCarData(session_key, since) {
-    return getJson('/car_data', { session_key, date_start: since })
+    try { return getJson('/car_data', { session_key, date_start: since }) }
+    catch { return []; }
 }
 
 //Stints: Provides information about individual stints. A stint refers to a period of continuous driving by a driver during a session.

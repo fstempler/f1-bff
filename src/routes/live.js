@@ -7,6 +7,12 @@ const router = Router();
 let sinceIso = null; 
 let lastSessionKey = null; 
 
+// returns [] if fetch fails
+async function safe(promise, label) {
+    try { return await promise; }
+    catch (e) { console.warn(`[live] ${label} failed: ${e?.message || e}`); return []; }
+}
+
 router.get('/', async (req, res, next) => {
     try {
         const sessionKey = Number(req.query.session_key);
@@ -18,19 +24,19 @@ router.get('/', async (req, res, next) => {
         }
 
         const [drivers, pos, laps, pits, intervals, stints, carData, grid] = await Promise.all([
-            getDrivers(sessionKey),
-            getPosition(sessionKey, sinceIso),
-            getLaps(sessionKey, sinceIso),
-            getPit(sessionKey, sinceIso),
-            getIntervals(sessionKey, sinceIso),
-            getStints(sessionKey),
-            getCarData(sessionKey, sinceIso),
-            getStartingGrid(sessionKey),     
+            safe(getDrivers(sessionKey), 'drivers'),
+            safe(getPosition(sessionKey, sinceIso), 'positions'),
+            safe(getLaps(sessionKey, sinceIso), 'laps'),
+            safe(getPit(sessionKey, sinceIso), 'pit'),
+            isLite ? [] : safe(getIntervals(sessionKey, sinceIso), 'intervals'),
+            safe(getStints(sessionKey), 'stints'),
+            isLite ? [] : safe(getCarData(sessionKey, sinceIso), 'car_data'),
+            safe(getStartingGrid(sessionKey), 'starting_grid'),
         ]);
 
-        const maxDate = maxIso([
-            ...pos, ...laps, ...pits, ...intervals, ...carData
-        ].map(x => x?.date || x?.date_start).filter(Boolean));
+        const maxDate = maxIso(
+            [...pos, ...laps, ...pits, ...intervals, ...carData]
+            .map(x => x?.date || x?.date_start).filter(Boolean));
         if (maxDate) sinceIso = maxDate;
 
         const leaderBoard = mergeLive(
