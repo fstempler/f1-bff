@@ -27,7 +27,7 @@ router.get('/', async (req, res, next) => {
             lastSessionKey = sessionKey;
         }
 
-        const fromIso = sinceIso ?? new Date(Date.now() - INIT_WINDOWS_MS),toISOString();
+        const fromIso = sinceIso ?? new Date(Date.now() - INIT_WINDOWS_MS).toISOString();
 
         const [drivers, pos, laps, pits, intervals, stints, carData, grid] = await Promise.all([
             safe(getDrivers(sessionKey), 'drivers'),
