@@ -18,6 +18,9 @@ router.get('/', async (req, res, next) => {
         const sessionKey = Number(req.query.session_key);
         if (!sessionKey) return res.status(400).json({ error: 'missing session_key'});
 
+        const lite = String(req.query.lite ?? '').toLowerCase();
+        const isLite = lite === '1' || lite === 'true';
+
         if (lastSessionKey !== sessionKey) {
             sinceIso = null;
             lastSessionKey = sessionKey;
