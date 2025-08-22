@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDrivers, getPosition, getLaps, getPit, getIntervals, getStints, getCarData, getStartingGrid } from '../services/openf1.js';
 import { mergeLive } from '../services/adapters.js';
 
+const INIT_WINDOWS_MS = Number(process.env.LIVE_INIT_WINDOWS_MS ?? 30000);
 const router = Router();
 
 let sinceIso = null; 
@@ -26,14 +27,16 @@ router.get('/', async (req, res, next) => {
             lastSessionKey = sessionKey;
         }
 
+        const fromIso = sinceIso ?? new Date(Date.now() - INIT_WINDOWS_MS),toISOString();
+
         const [drivers, pos, laps, pits, intervals, stints, carData, grid] = await Promise.all([
             safe(getDrivers(sessionKey), 'drivers'),
-            safe(getPosition(sessionKey, sinceIso), 'positions'),
-            safe(getLaps(sessionKey, sinceIso), 'laps'),
-            safe(getPit(sessionKey, sinceIso), 'pit'),
-            isLite ? [] : safe(getIntervals(sessionKey, sinceIso), 'intervals'),
+            safe(getPosition(sessionKey, fromIso), 'positions'),
+            safe(getLaps(sessionKey, fromIso), 'laps'),
+            safe(getPit(sessionKey, fromIso), 'pit'),
+            isLite ? [] : safe(getIntervals(sessionKey, fromIso), 'intervals'),
             safe(getStints(sessionKey), 'stints'),
-            isLite ? [] : safe(getCarData(sessionKey, sinceIso), 'car_data'),
+            isLite ? [] : safe(getCarData(sessionKey, fromIso), 'car_data'),
             safe(getStartingGrid(sessionKey), 'starting_grid'),
         ]);
 
@@ -68,11 +71,11 @@ router.get('/', async (req, res, next) => {
 
 function maxIso(isos) {
     let bestT = 0, best = null;
-    for (const s of isos) {
+    for (const s of (isos || [])) {
         const t = Date.parse(s);
         if (Number.isFinite(t) && t > bestT) { 
-            bestT = d; 
-            best = new Date(d).toISOString(); 
+            bestT = t; 
+            best = new Date(t).toISOString(); 
         }
     }
     return best;
