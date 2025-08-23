@@ -1,9 +1,12 @@
 import { Router } from 'express';
-import { getDrivers, getPosition, getLaps, getPit, getIntervals, getStints, getCarData, getStartingGrid } from '../services/openf1.js';
+import { getDrivers, getPosition, getLaps, getPit, getIntervals, getStints, getCarData, getStartingGrid, getSessionByKey } from '../services/openf1.js';
 import { mergeLive } from '../services/adapters.js';
 
-const INIT_WINDOWS_MS = Number(process.env.LIVE_INIT_WINDOWS_MS ?? 30000);
+
 const router = Router();
+
+const INIT_WINDOWS_MS = Number(process.env.LIVE_INIT_WINDOWS_MS ?? 30000);
+const FALLBACK_WINDOW_MS = Number(process.env.LIVE_FALLBACK_MS ?? 15*60*1000);
 
 let sinceIso = null; 
 let lastSessionKey = null; 
@@ -27,9 +30,10 @@ router.get('/', async (req, res, next) => {
             lastSessionKey = sessionKey;
         }
 
+        // "LIVE" WINDOW - FIRST TRY
         const fromIso = sinceIso ?? new Date(Date.now() - INIT_WINDOWS_MS).toISOString();
 
-        const [drivers, pos, laps, pits, intervals, stints, carData, grid] = await Promise.all([
+        let [drivers, pos, laps, pits, intervals, stints, carData, grid] = await Promise.all([
             safe(getDrivers(sessionKey), 'drivers'),
             safe(getPosition(sessionKey, fromIso), 'positions'),
             safe(getLaps(sessionKey, fromIso), 'laps'),
@@ -39,6 +43,18 @@ router.get('/', async (req, res, next) => {
             isLite ? [] : safe(getCarData(sessionKey, fromIso), 'car_data'),
             safe(getStartingGrid(sessionKey), 'starting_grid'),
         ]);
+
+        //IF NO POSITIONS, TRY "HISTORIC"
+        if (!pos?.length) {
+            const sess = await safe(getSessionByKey(sessionKey), 'session_by_key');
+            const endIso = Array.isArray(sess) && sess[0]?.date_end ? new Date(sess[0].date_end).toISOString() : new Date().toISOString();
+            const startIso = new Date(Date.parse(endIso) - FALLBACK_WINDOW_MS).toISOString();
+            console.warn(`[live] positions empty in live window, retrying from ${startIso} to ${endIso}`);
+            pos = await safe(getPosition(sessionKey, startIso, endIso), 'position_fallback');
+            //To complete bring laps/pits
+            if(!laps?.length) laps = await safe(getLaps(sessionKey, startIso), 'laps_fallback');
+            if(!pits?.length) pits = await safe(getPit(sessionKey, startIso), 'pit_fallback');
+        }
 
         const maxDate = maxIso(
             [...pos, ...laps, ...pits, ...intervals, ...carData]

@@ -27,9 +27,13 @@ export async function getDrivers(session_key) {
 
 
 // position vs positions
-export async function getPosition(session_key, since) {
-  try { return await getJson('/position', { session_key, date_start: since }); }
-  catch { return await getJson('/positions', { session_key, date_start: since }); }
+export async function getPosition(session_key, since, until) {
+  const params = { session_key };
+  if (since) params.date_start = since;
+  if (until) params.date_end = until;
+
+  try { return await getJson('/position', params); }
+  catch { return await getJson('/positions', params); }
 }
 
 //Intervals: Fetches time gap between driver and race leader
