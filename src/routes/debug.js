@@ -31,7 +31,12 @@ router.get('/position', async (req, res, next) => {
     const win = parseWindow(req.query.window) ?? Number(req.query.ms ?? 300000);
     const fromIso = fromWindowMs(win);
 
-    const pos = await getPosition(sessionKey, fromIso);
+    let pos = await getPosition(sessionKey, fromIso);
+    //Fallback: checks for 30 min span
+    if (!pos?.length) {
+        const fromIsoWide = fromWindowMs(30 * 60 * 1000);
+        pos = await getPosition(sessionKey, fromIsoWide);
+    }
     res.json({ sessionKey, fromIso, count: pos.length, sample: pos.slice(0, 5) });
   } catch (e) { next(e); }
 });

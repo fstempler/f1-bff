@@ -5,11 +5,19 @@ import { mergeLive } from '../services/adapters.js';
 
 const router = Router();
 
-const INIT_WINDOWS_MS = Number(process.env.LIVE_INIT_WINDOWS_MS ?? 30000);
+const INIT_WINDOW_MS = Number(process.env.LIVE_INIT_WINDOWS_MS ?? 30000);
 const FALLBACK_WINDOW_MS = Number(process.env.LIVE_FALLBACK_MS ?? 15*60*1000);
 
 let sinceIso = null; 
 let lastSessionKey = null; 
+
+function parseWindow(s) {
+    if (!s) return null;
+    const m = /^(\d+)\s*(ms|s|m|h)?$/i.exec(String(s).trim());
+    if (!m) return null;
+    const n = +m[1], u = (m[2]||'ms').toLowerCase();
+    return u==='h'? n*3600000 : u==='m'? n*60000 : u==='s'? n*1000 : n;
+}
 
 // returns [] if fetch fails
 async function safe(promise, label) {
@@ -31,7 +39,8 @@ router.get('/', async (req, res, next) => {
         }
 
         // "LIVE" WINDOW - FIRST TRY
-        const fromIso = sinceIso ?? new Date(Date.now() - INIT_WINDOWS_MS).toISOString();
+        const win = parseWindow(req.query.window) ?? INIT_WINDOW_MS;
+        const fromIso = sinceIso ?? new Date(Date.now() - win).toISOString();
 
         let [drivers, pos, laps, pits, intervals, stints, carData, grid] = await Promise.all([
             safe(getDrivers(sessionKey), 'drivers'),

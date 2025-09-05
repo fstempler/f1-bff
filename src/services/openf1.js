@@ -17,7 +17,8 @@ export async function getCurrentSession(year) {
 
 //session for session_key
 export async function getSessionByKey(session_key) {
-  return getJson('/session', { session_key });
+  //returns an Array
+  return getJson('/sessions', { session_key });
 }
 
 //Current Drivers in Session
@@ -27,13 +28,11 @@ export async function getDrivers(session_key) {
 
 
 // position vs positions
-export async function getPosition(session_key, since, until) {
+export async function getPosition(session_key, since, until) {  
   const params = { session_key };
-  if (since) params.date_start = since;
-  if (until) params.date_end = until;
-
-  try { return await getJson('/position', params); }
-  catch { return await getJson('/positions', params); }
+  if (since) params[ 'date>='] = since;
+  if (until) params[ 'date<='] = until;
+  return getJson('/position', params);
 }
 
 //Intervals: Fetches time gap between driver and race leader
