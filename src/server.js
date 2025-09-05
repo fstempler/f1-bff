@@ -5,6 +5,7 @@ import metaRouter from './routes/meta.js';
 import liveRouter from './routes/live.js';
 import feedRouter from './routes/feed.js';
 import sseRouter from './routes/sse.js';
+import debugRouter from './routes/debug.js';
 
 const allow = process.env.FRONT_ORIGIN || true;
 
@@ -20,6 +21,7 @@ export function createApp() {
     app.use('/live', liveRouter);
     app.use('/feed', feedRouter);
     app.use('/sse', sseRouter);
+    app.use('/debug', debugRouter);
 
     //Error handler
 
